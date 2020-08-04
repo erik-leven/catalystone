@@ -4,7 +4,6 @@ import requests
 import logging
 import sys
 import json
-import dotdictify
 
 app = Flask(__name__)
 logger = None
