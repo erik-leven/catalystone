@@ -19,7 +19,6 @@ logger.setLevel(logging.DEBUG)
 def get_token(path):
     headers = {}
     logger.info("Creating header")
-
     if path == "user-historic":
         headers = {
             "Client-Id":os.environ.get('client_id_user'),
@@ -46,7 +45,7 @@ def get_token(path):
             "grant_type": os.environ.get('grant_type')
         }
     else:
-        logger.info("undefined method")
+        logger.info("undefined path")
         sys.exit()
     resp = requests.get(url=os.environ.get('token_url'), headers=headers)
     if resp.status_code != 200:
@@ -65,11 +64,10 @@ def get_token(path):
 class DataAccess:
 
 #main get function check for path and make decisions based on that value
-    def __get_all_entities(self, path, query):
+    def __get_all_entities(self, path, query=None):
         logger.info("Fetching data from url: %s", path)
         if query:
             logger.info("Using query: %s", query)
-        logger.info("Fetching data from url: %s", path)
         token = get_token(path)
 
         if path == "user-historic":
@@ -111,28 +109,21 @@ data_access_layer = DataAccess()
 
 def update_entities(entities, headers, post_url, counter):
     if counter == 0:
-        #for i in range (total_list):
         for entity in entities:
-
             entity.pop('_id', None)
             response = requests.post(post_url, data=json.dumps(entity), headers=headers)
             if response.status_code is not 200:
                 if response.status_code == 403:
-                    logger.info('stuff happens')
                     logger.error("Unexpected response status code: %d with response text %s" % (response.status_code, response.text) + str(counter))
                     raise AssertionError("Unexpected response status code: %d with response text %s" % (response.status_code, response.text) + str(counter))
                 logger.error("Got error code: " + str(response.status_code) + " with text: " + response.text + str(counter))
                 return Response(response.text, status=response.status_code, mimetype='application/json')
-
-            #logger.info("Processed " + entity['USERS']['USER'][0]['STANDARD_FIELDS']['UNIQUE_IMPORT_ID'])
             counter +=1
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
     else:
         counter = counter
         for entity in entities[counter:]:
-        #for entity in entities and counter < total_list:
-
             entity.pop('_id', None)
             response = requests.post(post_url, data=json.dumps(entity), headers=headers)
             if response.status_code is not 200:
@@ -141,7 +132,6 @@ def update_entities(entities, headers, post_url, counter):
                     raise AssertionError("Unexpected response status code: %d with response text %s" % (response.status_code, response.text), +str(counter))
                 logger.error("Got error code: " + str(response.status_code) + " with text: " + response.text + str(counter))
                 return Response(response.text, status=response.status_code, mimetype='application/json')
-            #logger.info("Processed " + entity['USERS']['USER'][0]['STANDARD_FIELDS']['UNIQUE_IMPORT_ID'])
             counter +=1
         return json.dumps({'success':True}), 200, {'ContentType':'application/json'}
 
@@ -162,10 +152,10 @@ def get_path(path):
     try:    
         s = path.split("/")
         path = s[0]
-        query = "/" + s[1]
+        query = "?" + s[1]
     except IndexError:
         path = path
-        query = ""
+        query = None
     if request.method == 'POST':
         post_url = os.environ.get('post_url') + "?access_token=" + get_token(path)
         entities = request.get_json()
@@ -181,14 +171,12 @@ def get_path(path):
             post_url = os.environ.get('post_url') + "?access_token=" + get_token(path)
             return update_entities(entities, headers, post_url, counter)
 
-
     elif request.method == "GET":
         entities = data_access_layer.get_entities(path, query)
         return Response(
             stream_json(entities),
             mimetype='application/json'
         )
-
     else:
         logger.info("undefined request method")
 
